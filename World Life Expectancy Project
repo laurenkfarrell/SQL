@@ -1,0 +1,208 @@
+# Exploratory Analysis of World Life Expectancy
+
+## Executive Summary: Using MySQL, I cleaned up data and conduct an exploratory analysis on World life expectancy 
+
+## Business Problem:
+
+## Methodology: 
+1. Clean the data: (identify and remove duplicates, update formats for consistency across dataset, etc.)
+2. Conduct exploratory analysis to identify trends
+
+## Skills:
+SQL: cleaning, Joins, aggregate functions, case statements
+
+## Results & Business Recommendations
+
+## Next Steps
+______________
+## SQL Code:
+
+Data Cleaning
+
+SELECT * FROM world_life_expectancy;
+
+## Identify duplicates
+
+SELECT Country, Year, CONCAT(Country, YEAR), COUNT(CONCAT(Country, Year))
+FROM world_life_expectancy
+GROUP BY Country, Year, CONCAT(Country, YEAR)
+HAVING COUNT(CONCAT(Country, Year)) > 1
+;
+
+SELECT *
+FROM (
+	SELECT Row_ID,
+	CONCAT(Country, Year),
+	ROW_NUMBER() OVER( PARTITION BY CONCAT(Country, Year) ORDER BY CONCAT(Country, Year)) as Row_Num
+	FROM world_life_expectancy
+    ) AS Row_table
+WHERE Row_Num > 1
+;
+
+## Delete duplicates
+
+DELETE FROM world_life_expectancy
+WHERE 
+	Row_ID IN (
+    SELECT Row_ID
+FROM (
+	SELECT Row_ID,
+	CONCAT(Country, Year),
+	ROW_NUMBER() OVER( PARTITION BY CONCAT(Country, Year) ORDER BY CONCAT(Country, Year)) as Row_Num
+	FROM world_life_expectancy
+    ) AS Row_table
+WHERE Row_Num > 1
+) 
+;
+    
+## Identifing blanks or nulls in Status column
+    
+SELECT * 
+FROM world_life_expectancy
+WHERE Status = ''
+;
+
+## Identifying what Status' are present in column (output = 'Developing' and 'Developed')
+
+SELECT DISTINCT(Status)
+FROM world_life_expectancy
+WHERE Status <> ''
+;
+
+## Identifying 'Developing' Countries
+
+SELECT DISTINCT(Country)
+FROM world_life_expectancy
+WHERE Status = 'Developing' 
+;
+
+## Updating coresponding status with identified 'Developing' Countries
+
+UPDATE world_life_expectancy
+SET STATUS = 'Developing'
+WHERE Country IN (
+	SELECT DISTINCT(Country)
+	FROM world_life_expectancy
+	WHERE Status = 'Developing') 
+;
+
+UPDATE world_life_expectancy t1
+JOIN world_life_expectancy t2
+	ON t1.Country = t2.Country
+SET t1.Status = 'Developing'
+WHERE t1.Status = ''
+	AND t2.Status <> ''
+    AND t2. Status = 'Developing'
+;
+    
+## Updating coresponding status with identified 'Developed' Countries
+
+UPDATE world_life_expectancy t1
+JOIN world_life_expectancy t2
+	ON t1.Country = t2.Country
+SET t1.Status = 'Developed'
+WHERE t1.Status = ''
+	AND t2.Status <> ''
+    AND t2. Status = 'Developed'
+;
+   
+## Identifying blank values in life expectancy column    
+   
+SELECT *
+FROM world_life_expectancy
+WHERE `Life expectancy` = ''
+;
+
+##Calculating life expectancy of the 2 identified missing values based on yearly trends
+
+SELECT t1.Country, t1.Year, t1.`Life expectancy`,
+	t2.Country, t2.Year, t2.`Life expectancy`,
+    t3.Country, t3.Year, t3.`Life expectancy`,
+    ROUND((t2.`Life expectancy` + t3.`Life expectancy`)/2,1)
+FROM world_life_expectancy t1
+JOIN world_life_expectancy t2
+	ON t1. Country = t2.Country
+    AND t1.Year = t2.Year - 1
+JOIN world_life_expectancy t3
+	ON t1. Country = t3.Country
+    AND t1.Year = t3.Year + 1
+WHERE t1.`Life expectancy` = ''
+;
+
+##Updating life expectancy of the 2 identified missing values based on yearly trends
+
+UPDATE world_life_expectancy t1
+JOIN world_life_expectancy t2
+	ON t1. Country = t2.Country
+    AND t1.Year = t2.Year - 1
+JOIN world_life_expectancy t3
+	ON t1. Country = t3.Country
+    AND t1.Year = t3.Year + 1
+SET t1.`Life expectancy` = ROUND((t2.`Life expectancy` + t3.`Life expectancy`)/2,1)
+WHERE t1.`Life expectancy` = ''
+;
+
+________________
+
+Data Analysis
+
+SELECT * FROM world_life_expectancy;
+
+## Identify MIN and MAX Life expectancy of each country and the difference in Life expectancy (excluding countries with '0's in the dataset)
+
+SELECT Country, 
+MIN(`Life expectancy`), 
+MAX(`Life expectancy`),
+ROUND(MAX(`Life expectancy`) - MIN(`Life expectancy`),1) AS Life_Increase_15_Years
+FROM world_life_expectancy
+GROUP BY Country
+HAVING MIN(`Life expectancy`) <> 0
+AND MAX(`Life expectancy`) <> 0
+ORDER BY Life_Increase_15_Years DESC
+;
+
+## Identify AVG Life expectancy per year (excluding '0's in the dataset)
+
+SELECT Year, ROUND(AVG(`Life expectancy`), 2)
+FROM world_life_expectancy
+WHERE `Life expectancy` <> 0
+GROUP BY Year
+ORDER BY Year DESC
+;
+
+## Explore does higher GDP correlate with higer Life expectancy (excluding '0's in the dataset)
+
+SELECT Country, ROUND(AVG(`Life expectancy`),1) AS Life_Exp, ROUND(AVG(GDP),1) AS GDP
+FROM world_life_expectancy
+GROUP BY Country
+HAVING Life_Exp > 0
+AND GDP > 0
+ORDER BY GDP ASC
+;
+
+## Further exploring GDP and Life expectancy correlation (1250 being about halfway point in the dataset)
+
+SELECT 
+SUM(CASE WHEN GDP >= 1250 THEN 1 ELSE 0 END) High_GDP_Count,
+AVG(CASE WHEN GDP >= 1250 THEN `Life expectancy` ELSE NULL END) High_GDP_Life_Exp,
+SUM(CASE WHEN GDP <= 1250 THEN 1 ELSE 0 END) Low_GDP_Count,
+AVG(CASE WHEN GDP <= 1250 THEN `Life expectancy` ELSE NULL END) Low_GDP_Life_Exp
+FROM world_life_expectancy
+;
+
+## Exploring correlation of status to Life expectancy (including counting the number of countries in each status to identify potentially skewed data)
+
+SELECT Status, COUNT(DISTINCT Country), ROUND(AVG(`Life expectancy`), 1)
+FROM world_life_expectancy
+GROUP BY Status
+;
+
+## Exploring correlation of BMI to Life expectancy (excluding '0's in the dataset)
+
+SELECT Country, ROUND(AVG(`Life expectancy`),1) AS Life_Exp, ROUND(AVG(BMI),1) AS BMI
+FROM world_life_expectancy
+GROUP BY Country
+HAVING Life_Exp > 0
+AND BMI > 0
+ORDER BY BMI 
+;
