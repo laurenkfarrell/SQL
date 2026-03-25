@@ -1,0 +1,278 @@
+Exploratory Analysis of US Income Data
+
+Executive Summary: Using MySQL, I cleaned up data and conduct an exploratory analysis on US Household Income 
+
+Business Problem:
+
+Methodology: 
+1. Clean the data: (identify and remove duplicates, update formats for consistency across dataset, etc.)
+2. Conduct exploratory analysis to identify trends
+
+Skills:
+SQL: cleaning, Joins, aggregate functions
+
+Results & Business Recommendations
+
+Next Steps
+______________
+SQL Code:
+
+US Income Data Cleaning
+
+SELECT * 
+FROM us_project.us_household_income;
+
+SELECT * 
+FROM us_project.us_household_income_statistics;
+
+## Update column name
+
+ALTER TABLE us_project.us_household_income_statistics RENAME COLUMN `ï»¿id` TO `id`;
+
+## Count number of records in each table to identify any gaps between datasets
+
+SELECT Count(id)
+FROM us_household_income_statistics;
+
+SELECT Count(id)
+FROM us_household_income;
+
+## Identify duplicates for both tables
+
+SELECT id, COUNT(id)
+FROM us_household_income
+GROUP BY id
+HAVING COUNT(id) > 1
+;
+
+SELECT *
+FROM (SELECT row_id,
+			id,
+			ROW_NUMBER() OVER(PARTITION BY id ORDER BY id) row_num
+	FROM us_project.us_household_income
+    ) AS duplicates
+WHERE row_num >1 
+;
+
+SELECT id, COUNT(id)
+FROM us_household_income_statistics
+GROUP BY id
+HAVING COUNT(id) > 1
+;
+
+## Remove duplicates
+
+DELETE FROM us_household_income
+WHERE row_id IN (
+	SELECT row_id
+	FROM (
+		SELECT row_id,
+		id,
+		ROW_NUMBER() OVER(PARTITION BY id ORDER BY id) row_num
+		FROM us_project.us_household_income
+		) AS duplicates
+	WHERE row_num >1)
+;
+
+## Identify state_names for errors
+
+SELECT DISTINCT State_Name
+FROM us_household_income
+ORDER BY 1
+;
+
+## Update errors
+
+UPDATE us_household_income
+SET State_Name = 'Georgia'
+WHERE State_Name = 'georia'
+;
+
+UPDATE us_household_income
+SET State_Name = 'Alabama'
+WHERE State_Name = 'alabama'
+;
+
+## Check state_ab for errors
+
+SELECT DISTINCT State_ab
+FROM us_household_income
+ORDER BY 1
+;
+
+## Check Place for blanks
+
+SELECT *
+FROM us_household_income
+WHERE Place = ''
+;
+
+## Update blank
+
+UPDATE us_household_income
+SET PLACE = 'Autaugaville'
+WHERE County = 'Autauga County'
+	AND City =  'Vinemont'
+;
+
+## Identify errors in type column
+
+SELECT Type, COUNT(TYPE)
+FROM us_household_income
+GROUP BY Type
+;
+
+## Update errors in type column
+
+UPDATE us_household_income
+SET Type = 'Borough'
+WHERE Type = 'Boroughs'
+;
+
+## Check for errors in ALand and AWater
+
+SELECT ALand, AWater
+FROM us_household_income
+WHERE AWater = 0 OR AWater = '' OR AWater IS NULL
+;
+
+SELECT ALand, AWater
+FROM us_household_income
+WHERE ALand = 0 OR ALand = '' OR ALand IS NULL
+;
+
+SELECT ALand, AWater
+FROM us_household_income
+WHERE (ALand = 0 OR ALand = '' OR ALand IS NULL)
+AND (AWater = 0 OR AWater = '' OR AWater IS NULL)
+;
+
+
+US Income Exploratory Analysis
+
+## US Household Income Exploratory Data Analysis
+
+SELECT * 
+FROM us_project.us_household_income;
+
+SELECT * 
+FROM us_project.us_household_income_statistics;
+
+## Which state has the most area of land
+
+SELECT State_name, SUM(ALand), SUM(AWater)
+FROM us_household_income
+GROUP BY State_name
+ORDER BY 2 DESC
+;
+
+## Which state has the most area of water
+
+SELECT State_name, SUM(ALand), SUM(AWater)
+FROM us_household_income
+GROUP BY State_name
+ORDER BY 3 DESC
+;
+
+## Identify the top 10 largest states by area of land
+
+SELECT State_name, SUM(ALand), SUM(AWater)
+FROM us_household_income
+GROUP BY State_name
+ORDER BY 2 DESC
+LIMIT 10
+;
+
+## Identify the top 10 largest states by area of water
+
+SELECT State_name, SUM(ALand), SUM(AWater)
+FROM us_household_income
+GROUP BY State_name
+ORDER BY 3 DESC
+LIMIT 10
+;
+
+## Conduct right join to identify where information is missing between tables
+
+SELECT *
+FROM us_household_income u
+RIGHT JOIN us_household_income_statistics us
+	ON u.id = us.id
+WHERE u.id IS NULL
+;
+
+## Join tables and exclude records with missing data
+
+SELECT *
+FROM us_household_income u
+INNER JOIN us_household_income_statistics us
+	ON u.id = us.id
+WHERE Mean <> 0
+;
+
+## Identify the 5 states with the lowest average mean income
+
+SELECT u.State_name, ROUND(AVG(Mean),0), ROUND(AVG(Median),0)
+FROM us_household_income u
+INNER JOIN us_household_income_statistics us
+	ON u.id = us.id
+WHERE Mean <> 0
+GROUP BY u.State_name
+ORDER BY 2 ASC
+LIMIT 5
+;
+
+## Identify the 10 states with the highest average median income
+
+SELECT u.State_name, ROUND(AVG(Mean),0), ROUND(AVG(Median),0)
+FROM us_household_income u
+INNER JOIN us_household_income_statistics us
+	ON u.id = us.id
+WHERE Mean <> 0
+GROUP BY u.State_name
+ORDER BY 3 DESC
+LIMIT 10
+;
+
+## Explore the average mean income per each Type
+
+SELECT Type, COUNT(Type), ROUND(AVG(Mean),0), ROUND(AVG(Median),0)
+FROM us_household_income u
+INNER JOIN us_household_income_statistics us
+	ON u.id = us.id
+WHERE Mean <> 0
+GROUP BY Type
+ORDER BY 3 DESC
+;
+
+## Explore the average median income per each Type (excluding Type outliers)
+
+SELECT Type, COUNT(Type), ROUND(AVG(Mean),0), ROUND(AVG(Median),0)
+FROM us_household_income u
+INNER JOIN us_household_income_statistics us
+	ON u.id = us.id
+WHERE Mean <> 0
+GROUP BY Type
+HAVING COUNT(Type) > 100
+ORDER BY 4 DESC
+;
+
+## Find states that have communities
+
+SELECT *
+FROM us_household_income u
+INNER JOIN us_household_income_statistics us
+	ON u.id = us.id
+WHERE Mean <> 0 
+	AND Type = 'Community'
+;
+
+## Identify highest income cities
+
+SELECT u.State_name, City, ROUND(AVG(Mean),0), ROUND(AVG(Median),0)
+FROM us_household_income u
+INNER JOIN us_household_income_statistics us
+	ON u.id = us.id
+GROUP BY u.State_name, City
+ORDER BY 3 DESC
+;
