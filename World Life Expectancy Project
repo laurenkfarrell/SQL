@@ -1,19 +1,11 @@
 # Exploratory Analysis of World Life Expectancy
 
-## Executive Summary: Using MySQL, I cleaned up data and conduct an exploratory analysis on World life expectancy 
-
-## Business Problem:
-
 ## Methodology: 
 1. Clean the data: (identify and remove duplicates, update formats for consistency across dataset, etc.)
 2. Conduct exploratory analysis to identify trends
 
 ## Skills:
 SQL: cleaning, Joins, aggregate functions, case statements
-
-## Results & Business Recommendations
-
-## Next Steps
 ______________
 ## SQL Code:
 
